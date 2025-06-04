@@ -14,7 +14,6 @@ verl的整体设计有一些最重要的设计理念和概念，简单学习了�
 
 但是每个指令都要给所有的worker发一遍，这样写成循环的形式就很不优雅，于是有个WorkerGroup的概念，这就相当于说leader为了不每次有事情需要找所有人说一遍，直接拉一个群，在群里做通知就行了，于是就有了集合程序调用的概念（Colloctive Remote Process Call），那这个怎么实现呢，就是一组Worker会绑定为一个**WorkerGroup**，分配给一个资源池**Resource Pool**, 主进程通过控制worker group而不是每一个单独的worker来进行集合式的远程函数调用 **（Colloctive Remote Process Call）**
 
-![image-2025-3-5_16-33-49.png](https://km.vivo.xyz/download/attachments/1301461656/image-2025-3-5_16-33-49.png?version=1&modificationDate=1741163630000&api=v2)
 
 verl 中的worker可以动态切换具体的角色，每一个worker在不同的训练阶段会成为不同的角色 Role（例如从actor切换为rollout再切换到ref），为了适配不同角色和方法所需的数据划分细节（例如在dp维度切分数据、在3d维度切分数据等），VeRL设计了一套数据传输协议（Data Transfer Protocol）。
 
