@@ -1,2 +1,2 @@
 # MLsys-Learning-Notes
-学习记录
+学习和记录一些MLsys知识
