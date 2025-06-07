@@ -2,9 +2,7 @@ verl的整体设计有一些最重要的设计理念和概念，简单学习了�
 
 **1.整体框架** 包括控制流和计算流以及编程模型。
 
-**2.核心性能feature**
-
-包括remove_padding/seq packing 以及 dyanmic batch size
+**2.核心性能feature** 包括remove_padding/seq packing 以及 dyanmic batch size
 
 ### Single Controller + Multi Worker
 
@@ -23,7 +21,16 @@ verl 中的worker可以动态切换具体的角色，每一个worker在不同的
 
 DP_COMPUTE_PROTO 用来在不同的DP节点中分发数据并收集每个dp_rank计算所得的结果
 
-![image.png](http://gaia-mix-prd.vmic.xyz/vshare/edde5a2c9d7e41319c0859b1b310ef8a.png)
+```
+# in worker process
+@register(Dispatch.DP_COMPUTE_PROTO)
+def generate_sequences(data):
+    ...
+
+# in driver process
+worker_group.generate_sequences(data)
+
+```
 
 在主进程中调用generate_sequences函数实际上执行的是下面四个步骤
 
@@ -42,7 +49,7 @@ collect(result) # 再从每个rank上收集对应的结果
 
 首先回顾一下在强化学习中，有着大量的数据依赖，即inference阶段必须等待generate阶段完成，training阶段又必须等待inference阶段完成，于是这样需要训练引擎等待推理引擎完成推理，然后做完inference阶段计算log_prob，values等所需的值，才能训练，如果训练引擎和推理引擎是放在不同的GPU资源池上，那么在推理阶段，训练引擎就需要傻傻地等着推理引擎完成推理，这个bubble时间在推理较长的场景下是很难接受的。像下面这张图这样（这张图是英伟达的小伙伴画的，这里借用一下）。
 
-![image.png](http://gaia-mix-prd.vmic.xyz/vshare/3f73851dd69c45b89fcd64fe23844cc3.png)
+![hybrid_engine.png](../RLHF/images/hybrid_engine.png)
 
 于是verl引入了**hybrid engine**的概念
 
@@ -66,7 +73,7 @@ collect(result) # 再从每个rank上收集对应的结果
 
 在训练过程中，每个worker 进程会执行以下流程：
 
-![image.png](http://gaia-mix-prd.vmic.xyz/vshare/7da36e311fac476b833aa89c50f0dd94.png)
+![worker_pipeline.png](../RLHF/images/worker_pipeline.png)
 
 hybrid engine保证了对gpu资源的高利用率。且在大部分场景下性能几乎都是最优的。
 
@@ -88,12 +95,12 @@ verl中使用了两个feature来解决这个问题，第一个是remove_paddding
 
 worker 0拿到的数据都比较长 worker1拿到的数据都比较短，会有很多padding
 
-![image.png](http://gaia-mix-prd.vmic.xyz/vshare/eadd368ea61a48e3b835b5c79de7f974.png)
+![dynamic_batch_2.png](../RLHF/images/dynamic_batch_2.png)
 
 通过remove padding可以把同一个micro batch中的数据padding去掉并拼成一整条丢给worker
 
-![image.png](http://gaia-mix-prd.vmic.xyz/vshare/cb7ebf39fe5f4e659ab51ff6561a875e.png)
+![dynamic_batch_1.png](../RLHF/images/dynamic_batch_1.png)
 
 但是这样仍然有严重的负载不均衡问题，dynamic batch可以通过对seq进行分桶，先平衡各个rank之间的token总数，动态调整batch size（不影响梯度累加），再进行拼接操作，大幅提高性能。
 
-![image.png](http://gaia-mix-prd.vmic.xyz/vshare/a5bc52352ff54fc6bcc4b944e9fc3907.png)
+![dynamic_batch_3.png](../RLHF/images/dynamic_batch_3.png)
