@@ -1,6 +1,6 @@
 ### one-step-async-rl
 基于verl做了一版 one step async rl 的方案，在这里简单总结一下。
-最早是看到verl-pipeline的项目https://github.com/agentica-project/verl-pipeline使用了这种方法，评估了一下觉得这种方案主要有两个优势。
+最早是看到verl-pipeline的项目 https://github.com/agentica-project/verl-pipeline 使用了这种方法，评估了一下觉得这种方案主要有两个优势。
 - 一是算力利用更充分，尤其是资源比较多的情况。
   对于推理侧，通常情况下不会打满gpu，一个vllm实例上只有1-2条数据，这时候如果把GPU减半，实际上吞吐会增加很多，导致时间并不会慢多少。
   对于训练侧，减少了卡数相当于增加梯度累计的数量，减少了通信占比，也会增大吞吐。
@@ -9,7 +9,7 @@
   那么训推分离的方案会使得扩展性比较好，至少增加一半的卡数，把本来的训练和推理放在两组卡上，就会有不少的提升效果。如果能保证训练和推理的时间差不多长，那么这里的加速比基本可以达到100%。
 
 所以我们就把这个方案落地到了实际的训练中，然而在落地过程中遇到了很多困难。
-一是off_policy其实还是有一定影响的。很多论文都说没什么影响，包括verl官方实现的one_step_async_rl recipe https://github.com/volcengine/verl/tree/main/recipe/one_step_off_policy也说没什么影响。
+一是off_policy其实还是有一定影响的。很多论文都说没什么影响，包括verl官方实现的one_step_async_rl recipe https://github.com/volcengine/verl/tree/main/recipe/one_step_off_policy 也说没什么影响。
 但是实际上说没什么影响的跑的步数都比较少，或者实验比较偏demo，经过我们的实测，有几个指标实际上是不能完全对齐的，例如entropy和kl_loss。这其实会导致评测指标掉点，虽然最终显示通过加数据也能追回来，
 但是说明off_policy就是会有一定影响的。并且会随着实验的进行逐渐扩大。最终跟算法协调落地的时候，我们也是比的 time/performance 曲线，而不是 steps/performance。
 这也引申出对于infra工作的一些思考。大部分时候infra做的优化其实都会有一定程度的影响，只是这个影响最终能不能通过加数据来掩盖，如果有scaling的趋势，那么加数据是完全可行的，那最终就是比 time/performance。
